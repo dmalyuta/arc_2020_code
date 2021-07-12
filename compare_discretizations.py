@@ -10,7 +10,7 @@ from typing import Callable, List, Optional, Tuple
 from matplotlib import pyplot as plt
 from matplotlib import ticker as mtick
 
-choice = "ZOH"  # ZOH | RK4 | CGL | CGL_seg
+choice = "CGL_seg"  # ZOH | RK4 | CGL | CGL_seg
 system = "2ndOrder"  # 1stOrder | 2ndOrder
 
 # ..:: Define the continuous-time dynamical system ::..
@@ -34,12 +34,13 @@ elif system == "2ndOrder":
 
 Ts = 0.2  # [s] Discretization time interval
 Tsim = 10.0  # [s] Simulation duration
-Ntsol = 100  # Number of points to store the solution
+Ntsol = 101  # Number of points to store the solution
 machine_eps = np.finfo(float).eps  # Machine precision
 down_step_time = round(1.0/Ts)*Ts  # Time of input step end
 
 if choice == "CGL_seg":
     t_knot = down_step_time  # [s] Time at which to split collocation segments
+
 
 def input(t: np.float) -> np.float:
     """Input to the system."""
@@ -278,13 +279,13 @@ elif choice == "CGL" or choice == "CGL_seg":
         U1 = np.array([input(t) for t in
                        (Tsim-t_knot)*(eta_seg[1]+1)/2+t_knot])
         U = np.concatenate([U0, U1]).flatten()
+        Ng = np.sum(Ng_seg)-(num_seg-1)
     F = Dbar-Abar
-    F0 = F[:, :nx]
-    F1 = F[:, nx:]
-    R = -F0@x0+Bbar@U
-    X = la.pinv(F1)@R
+    F1 = F[:, :nx]
+    F2end = F[:, nx:]
+    R = -F1@x0+Bbar@U
+    X = la.pinv(F2end)@R
     X = np.concatenate([x0, X])
-    Ng = np.sum(Ng_seg)-(num_seg-1)
     x_d = np.vstack([X[nx*i:nx*(i+1)] for i in range(Ng)]).T
     # Collocate back into continuous time
     t_d = np.linspace(0, Tsim, Ntsol)
@@ -319,14 +320,14 @@ ax.plot(t_c, v_c, **ct_style)
 ax.plot(t_d, v_d, **dt_style)
 ax.autoscale(tight=True)
 ax.set_xlabel("Time [s]")
-ax.set_ylabel("Position [m]")
+ax.set_ylabel("Velocity [m/s]")
 
 # Position error plot
 ax = fig.add_subplot(212)
 ax.plot(t_d, v_err, **error_style)
 ax.autoscale(tight=True)
 ax.set_xlabel("Time [s]")
-ax.set_ylabel("Position error [m]")
+ax.set_ylabel("Velocity error [m/s]")
 ax.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.0e'))
 
 plt.tight_layout()
