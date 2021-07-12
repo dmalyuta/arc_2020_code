@@ -10,7 +10,7 @@ from typing import Callable, List, Optional, Tuple
 from matplotlib import pyplot as plt
 from matplotlib import ticker as mtick
 
-choice = "CGL_seg"  # ZOH | RK4 | CGL | CGL_seg
+choice = "ZOH"  # ZOH | RK4 | CGL | CGL_seg
 system = "2ndOrder"  # 1stOrder | 2ndOrder
 
 # ..:: Define the continuous-time dynamical system ::..
@@ -36,7 +36,7 @@ Ts = 0.2  # [s] Discretization time interval
 Tsim = 10.0  # [s] Simulation duration
 Ntsol = 100  # Number of points to store the solution
 machine_eps = np.finfo(float).eps  # Machine precision
-down_step_time = (1.0//Ts)*Ts  # Time of input step end
+down_step_time = round(1.0/Ts)*Ts  # Time of input step end
 
 if choice == "CGL_seg":
     t_knot = down_step_time  # [s] Time at which to split collocation segments
@@ -191,7 +191,6 @@ elif choice == "CGL_seg":
     num_seg = 2
     Ng_seg = [round(t_knot/Ts+1), round((Tsim-t_knot)/Ts+1)]
     eta_seg = [cgl_nodes(Ng_seg[i]) for i in range(num_seg)]
-    print(eta_seg)
     D_seg = [make_differentiation_matrix(Ng_seg[i], eta_seg[i])
              for i in range(num_seg)]
 
@@ -285,6 +284,7 @@ elif choice == "CGL" or choice == "CGL_seg":
     R = -F0@x0+Bbar@U
     X = la.pinv(F1)@R
     X = np.concatenate([x0, X])
+    Ng = np.sum(Ng_seg)-(num_seg-1)
     x_d = np.vstack([X[nx*i:nx*(i+1)] for i in range(Ng)]).T
     # Collocate back into continuous time
     t_d = np.linspace(0, Tsim, Ntsol)
@@ -296,9 +296,10 @@ if system == "1stOrder":
 elif system == "2ndOrder":
     p_d, v_d = x_d
     p_cd = np.interp(t_d, t_c, p_c)
-    v_cd = np.interp(t_d, t_c, p_c)
+    v_cd = np.interp(t_d, t_c, v_c)
 
 p_err = p_d-p_cd
+v_err = v_d-v_cd
 
 # >> Plot <<
 ct_style = dict(color="black")
@@ -314,15 +315,15 @@ plt.clf()
 
 # Position plot
 ax = fig.add_subplot(211)
-ax.plot(t_c, p_c, **ct_style)
-ax.plot(t_d, p_d, **dt_style)
+ax.plot(t_c, v_c, **ct_style)
+ax.plot(t_d, v_d, **dt_style)
 ax.autoscale(tight=True)
 ax.set_xlabel("Time [s]")
 ax.set_ylabel("Position [m]")
 
 # Position error plot
 ax = fig.add_subplot(212)
-ax.plot(t_d, p_err, **error_style)
+ax.plot(t_d, v_err, **error_style)
 ax.autoscale(tight=True)
 ax.set_xlabel("Time [s]")
 ax.set_ylabel("Position error [m]")
